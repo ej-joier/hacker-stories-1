@@ -1,7 +1,7 @@
 import React from 'react';
 import logo from './logo.svg';
 import './App.css';
-
+import axios from 'axios';
 
 const initialStories = [
   {
@@ -117,19 +117,18 @@ const App = () => {
     });
 
 
-  const fetchStoriesHandler = React.useCallback(()=> {
+  const fetchStoriesHandler = React.useCallback(async ()=> {
     if (!searchTerm) return;
     console.log(searchTerm);
     dispatchStories({type:'INIT'});
-
-    fetch(url)
-      .then(response=>response.json())
-      .then(result => {
-        dispatchStories({type:'FETCH_SUCCESS', payload: result.hits})
-      })
-      .catch(()=> {
+    
+    try {
+      const result = await axios.get(url);
+      dispatchStories({type:'FETCH_SUCCESS', payload: result.data.hits})
+    } catch {
         dispatchStories({type:'FAIL'});
-      })
+    }
+
   }, [url]);
 
   React.useEffect(()=>{
