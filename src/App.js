@@ -32,7 +32,6 @@ const useSemiPersistentState = (key, initialState) => {
     localStorage.getItem(key) || initialState);
 
   React.useEffect(() => {
-    console.log(value);
     localStorage.setItem(key, value);
   }, [value])
 
@@ -58,7 +57,7 @@ const List = ({list, onRemoveItem}) =>
     <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
     ));
 
-const LableWithSearch = ({id, value, onInputChange, onSearchClick, isFocused, children}) => {
+const LableWithSearch = ({id, value, onInputChange,  isFocused, children}) => {
   const inputRef= React.useRef();
 
   React.useEffect(() => {
@@ -71,49 +70,79 @@ const LableWithSearch = ({id, value, onInputChange, onSearchClick, isFocused, ch
     <>
       <label htmlFor='search'>{children}</label>
       <input ref={inputRef} id={id} type='text' value={value} onChange={onInputChange} />
-      <button type='button' onClick={onSearchClick}>Search</button>
     </>
   )
 }
 
 const storiesReducer = (state, action) => {
   switch(action.type) {
-    case 'SET_STORIES':
-      return action.payload;
+    case 'INIT':
+      return {
+        ...state,
+        isLoading: true,
+        isError: false,
+      }
+    case 'FETCH_SUCCESS':
+      return {
+        ...state,
+        isLoading:false,
+        isError:false,
+        data: action.payload
+      }
+    case 'FAIL':
+      return {
+        ...state,
+        isLoading:false,
+        isError:true,
+      }
     case 'REMOVE_STORY' :
-      return state.filter(story=>story.objectID !== action.payload);
-    default:
-      throw new Error();
+      return {
+        ...state,
+        data: state.data.filter(story=>story.objectID !== action.payload)
+      }
+    // default:
+    //   throw new Error();
   }
 }
 
 const App = () => {
 
+  const API_ENDPOINT = 'https://hn.algolia.com/api/v1/search?query=';
   const [searchTerm, setSearchTerm] = useSemiPersistentState('search', 'React');
-  const [stories, dispatchStories] = React.useReducer(storiesReducer, []);
-  const [isLoading, setIsLoading] = React.useState(false);
+  const [url, setUrl] = React.useState(`${API_ENDPOINT}${searchTerm}`);
 
-  const [isError, setIsError] = React.useState(false);
+  const [stories, dispatchStories] = React.useReducer(storiesReducer, 
+    {
+      data : [], isLoading: false, isError: false,
+    });
+
+
+  const fetchStoriesHandler = React.useCallback(()=> {
+    if (!searchTerm) return;
+    console.log(searchTerm);
+    dispatchStories({type:'INIT'});
+
+    fetch(url)
+      .then(response=>response.json())
+      .then(result => {
+        dispatchStories({type:'FETCH_SUCCESS', payload: result.hits})
+      })
+      .catch(()=> {
+        dispatchStories({type:'FAIL'});
+      })
+  }, [url]);
 
   React.useEffect(()=>{
-    setIsLoading(true);
-    getAsyncStories().then(result=> {
-      setIsLoading(false);
-      dispatchStories({type:'SET_STORIES', payload: result.data.stories})
-    }).catch(()=> {
-      setIsLoading(false);
-      setIsError(true);
-    })
-    ;
-  }, []);
-
+    fetchStoriesHandler()
+  }, [fetchStoriesHandler]);
 
   const handleChange = (e) => {
     setSearchTerm(e.target.value);
   }
 
-  const handleSubmitSearch = () => {
-    dispatchStories({type:'SET_STORIES', payload: initialStories.filter(story => story.title.toLowerCase().includes( searchTerm.toLowerCase() ))})
+
+  const handleSearchSubmit = () => {
+    setUrl(`${API_ENDPOINT}${searchTerm}`);
   }
 
   const handleRemoveItem = (item) => {
@@ -122,16 +151,18 @@ const App = () => {
 
   return (
     <div className="App">
-      <LableWithSearch id="search" isFocused onSearchClick={handleSubmitSearch} value={searchTerm} onInputChange={handleChange}>
+      <LableWithSearch id="search" isFocused value={searchTerm} onInputChange={handleChange}>
         <strong>Search</strong>
       </LableWithSearch>
-      {isError && (<p>Something went wrong.</p>)}
+      <button onClick={handleSearchSubmit}>Search</button>
 
-      {isLoading ? 
+      {stories.isError && (<p>Something went wrong.</p>)}
+
+      {stories.isLoading ? 
         (<p>Loading...</p>)
         :
         (
-      <List list={stories} onRemoveItem={handleRemoveItem} />
+      <List list={stories.data} onRemoveItem={handleRemoveItem} />
       )
         }
     </div>
