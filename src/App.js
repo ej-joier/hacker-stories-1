@@ -1,7 +1,99 @@
 import React from 'react';
 import logo from './logo.svg';
-import './App.css';
+// import styles from './App.module.css';
 import axios from 'axios';
+import cs from 'classnames';
+import styled from 'styled-components';
+import { ReactComponent as Check } from './check.svg';
+
+const StyledContainer = styled.div`
+  height: 100vw;
+  padding: 20px;
+
+  background: #83a4d4;
+  background: linear-gradient(to left, #b6fbff, #83a4d4);
+
+  color: #171212;
+  `;
+
+const StyledHeadlinePrimary = styled.h1`
+  font-size : 48px;
+  font-weight: 300;
+  letter-spacing: 2px;
+`;
+
+const StyledItem = styled.div`
+  display: flex;
+  align-items: center;
+  padding-bottom: 5px;
+  `;
+
+const StyledColumn = styled.span`
+  padding: 0 5px;
+  white-space: nowrap;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+
+  a{
+    color: inherit;
+  }
+
+  width: ${props => props.width};
+`;
+
+const StyledButton = styled.button`
+  background: transparent;
+  border: 1px solid #171212;
+  padding: 5px;
+  cursor: pointer;
+
+  transition: all 0.1s ease-in;
+
+  &:hover {
+    background: #171212;
+    color: #ffffff;
+  }
+`;
+
+const StyledButtonSmall = styled(StyledButton)`
+  padding: 5px;
+
+  &:hover {
+    svg{
+      g{
+        fill: #ffffff;
+        stroke: #ffffff;
+      }
+    }
+  }
+  `;
+
+const StyledButtonLarge = styled(StyledButton)`
+  padding: 10px;
+  `;
+
+const StyledSearchForm = styled.form`
+  padding: 10px 0 20px 0;
+  display: flex;
+  align-items: baseline;
+  `;
+
+const StyledLabel = styled.label`
+  border-top: 1px solid #171212;
+  border-left: 1px solid #171212;
+  padding-left: 5px;
+  font-size:24px;
+  `;
+
+const StyledInput = styled.input`
+  border: none;
+  border-bottom: 1px solid #171212;
+  background-color: transparent;
+
+  font-size: 24px;
+  `;
+
 
 const initialStories = [
   {
@@ -39,40 +131,26 @@ const useSemiPersistentState = (key, initialState) => {
 }
 
 const Item = ({item, onRemoveItem}) =>  (
-  <div >
-      <span>
+  <StyledItem>
+      <StyledColumn width="40%">
         <a href={item.url}>{item.title}</a>
-      </span>
-      <span>{item.author}</span>
-      <span>{item.num_comments}</span>
-      <span>{item.points}</span>
-      <span>
-        <button onClick={()=>onRemoveItem(item)}>Dismiss</button>
-      </span>
-    </div>
-    )
+      </StyledColumn>
+      <StyledColumn width="30%">{item.author}</StyledColumn>
+      <StyledColumn width="10%">{item.num_comments}</StyledColumn>
+      <StyledColumn width="10%">{item.points}</StyledColumn>
+      <StyledColumn width="10%">
+        <StyledButtonSmall type='button' onClick={()=>onRemoveItem(item)}>
+          <Check height="18px" width="18px" />
+        </StyledButtonSmall>
+      </StyledColumn>
+  </StyledItem>
+)
 
 const List = ({list, onRemoveItem}) => 
   list.map(item=>(
     <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
     ));
 
-const LableWithSearch = ({id, value, onInputChange,  isFocused, children}) => {
-  const inputRef= React.useRef();
-
-  React.useEffect(() => {
-    if (isFocused && inputRef.current) {
-      inputRef.current.focus();
-    }
-  }, [isFocused]);
-
-  return (
-    <>
-      <label htmlFor='search'>{children}</label>
-      <input ref={inputRef} id={id} type='text' value={value} onChange={onInputChange} />
-    </>
-  )
-}
 
 const storiesReducer = (state, action) => {
   switch(action.type) {
@@ -121,7 +199,7 @@ const App = () => {
     if (!searchTerm) return;
     console.log(searchTerm);
     dispatchStories({type:'INIT'});
-    
+
     try {
       const result = await axios.get(url);
       dispatchStories({type:'FETCH_SUCCESS', payload: result.data.hits})
@@ -135,13 +213,14 @@ const App = () => {
     fetchStoriesHandler()
   }, [fetchStoriesHandler]);
 
-  const handleChange = (e) => {
+  const handleSearchInput = (e) => {
     setSearchTerm(e.target.value);
   }
 
 
-  const handleSearchSubmit = () => {
+  const handleSearchSubmit = (e) => {
     setUrl(`${API_ENDPOINT}${searchTerm}`);
+    e.preventDefault();
   }
 
   const handleRemoveItem = (item) => {
@@ -149,11 +228,15 @@ const App = () => {
   }
 
   return (
-    <div className="App">
-      <LableWithSearch id="search" isFocused value={searchTerm} onInputChange={handleChange}>
-        <strong>Search</strong>
-      </LableWithSearch>
-      <button onClick={handleSearchSubmit}>Search</button>
+    <StyledContainer>
+      <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
+
+      <SearchForm
+        searchTerm={searchTerm}
+        onSearchInput={handleSearchInput}
+        onSearchSubmit={handleSearchSubmit}
+        />
+      
 
       {stories.isError && (<p>Something went wrong.</p>)}
 
@@ -164,8 +247,44 @@ const App = () => {
       <List list={stories.data} onRemoveItem={handleRemoveItem} />
       )
         }
-    </div>
+    </StyledContainer>
   );
 }
+
+const SearchForm = ({searchTerm, onSearchInput, onSearchSubmit}) => (
+  <StyledSearchForm onSubmit={onSearchSubmit}>
+    <InputWithLabel id="search" isFocused value={searchTerm} onInputChange={onSearchInput}>
+      <strong>Search</strong>
+    </InputWithLabel>
+    <StyledButtonLarge disabled={!searchTerm}>Search</StyledButtonLarge>
+  </StyledSearchForm>
+)
+
+class InputWithLabel extends React.Component {
+
+  constructor(props) {
+    super(props);
+    this.inputRef = React.createRef();
+  }
+
+  componentDidMount() {
+    if(this.props.isFocused) {
+      this.inputRef.current.focus();
+    }
+  }
+
+  render() {
+    const {id, value, onInputChange,  isFocused, children} = this.props;
+
+    return (
+      <>
+        <StyledLabel htmlFor={id}>{children}</StyledLabel>
+        <StyledInput ref={this.inputRef} id={id} type='text' value={value} onChange={onInputChange} />
+      </>
+    );
+  }
+
+}
+
 
 export default App;
