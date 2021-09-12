@@ -120,14 +120,26 @@ const getAsyncStories = () => new Promise((resolve, reject) =>
 )
 
 const useSemiPersistentState = (key, initialState) => {
+  const isMounted = React.useRef(false);
+
   const [value, setValue] = React.useState(
     localStorage.getItem(key) || initialState);
 
   React.useEffect(() => {
-    localStorage.setItem(key, value);
+    if (!isMounted.current) {
+      isMounted.current = true;
+    } else {
+      console.log('A');
+      localStorage.setItem(key, value);
+    }
   }, [value])
 
   return [value, setValue];
+}
+
+const getSumComments = data => {
+  console.log('C');
+  return data.reduce((result, value) => result + value.num_comments, 0);
 }
 
 const Item = ({item, onRemoveItem}) =>  (
@@ -146,11 +158,14 @@ const Item = ({item, onRemoveItem}) =>  (
   </StyledItem>
 )
 
-const List = ({list, onRemoveItem}) => 
+const List =
+  React.memo(
+ ({list, onRemoveItem}) => 
+  console.log('B:List') ||
   list.map(item=>(
     <Item key={item.objectID} item={item} onRemoveItem={onRemoveItem} />
-    ));
-
+    ))
+);
 
 const storiesReducer = (state, action) => {
   switch(action.type) {
@@ -197,7 +212,6 @@ const App = () => {
 
   const fetchStoriesHandler = React.useCallback(async ()=> {
     if (!searchTerm) return;
-    console.log(searchTerm);
     dispatchStories({type:'INIT'});
 
     try {
@@ -223,13 +237,21 @@ const App = () => {
     e.preventDefault();
   }
 
-  const handleRemoveItem = (item) => {
-    dispatchStories({type:'REMOVE_STORY', payload: item.objectID})
-  }
+  const handleRemoveItem = 
+    React.useCallback(
+      item => {
+        dispatchStories({type:'REMOVE_STORY', payload: item.objectID})
+      }
+      , []);
+
+  console.log('B:App');
+
+
+  const sumComments = React.useMemo( () => getSumComments(stories.data) , [stories]);
 
   return (
     <StyledContainer>
-      <StyledHeadlinePrimary>My Hacker Stories</StyledHeadlinePrimary>
+      <StyledHeadlinePrimary>My Hacker Stories with {sumComments} comments.</StyledHeadlinePrimary>
 
       <SearchForm
         searchTerm={searchTerm}
